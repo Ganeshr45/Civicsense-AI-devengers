@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: civicsense
+      POSTGRES_USER: civicsense
+      POSTGRES_PASSWORD: civicsense_dev_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U civicsense"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://civicsense:civicsense_dev_password@db:5432/civicsense
+      JWT_SECRET: change-this-to-a-long-random-string
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
+      GEMINI_API_KEY: ""
+      CORS_ORIGINS: "http://localhost:5173,http://localhost:3000,http://localhost"
+      DUPLICATE_RADIUS_METERS: "100"
+      DUPLICATE_WINDOW_HOURS: "72"
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads:/app/uploads
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  pgdata:
+  uploads:
